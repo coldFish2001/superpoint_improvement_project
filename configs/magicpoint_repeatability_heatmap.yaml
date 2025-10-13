@@ -1,7 +1,7 @@
 data:
     name: 'patches_dataset'
     dataset: 'hpatches'  # 'coco' 'hpatches'
-    alteration: 'all'  # 'all' 'i' 'v'
+    alteration: 'all'  # 'all' 'i' 'v'   定义了数据集中图像对的变化类型，all': 包括所有类型的变换（光照变化和视点变化）
     preprocessing:
         resize: [240, 320]  # [240, 320] for HPatches and False for coco
 #        resize: [480, 640]  # [240, 320] for HPatches and False for coco

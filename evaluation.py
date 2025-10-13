@@ -42,6 +42,13 @@ def draw_matches_cv(data, matches, plot_points=True):
     img2 = to3dim(data['image2'])
     img1 = np.concatenate([img1, img1, img1], axis=2)
     img2 = np.concatenate([img2, img2, img2], axis=2)
+
+    # ======= 💥 修复 CV_32FC3 错误的代码添加在这里 💥 =======
+    # 1. 缩放 [0.0, 1.0] 到 [0, 255]
+    img1 = (img1 * 255.0).astype(np.uint8) 
+    img2 = (img2 * 255.0).astype(np.uint8)
+    # =======================================================
+
     return cv2.drawMatches(img1, keypoints1, img2, keypoints2, matches,
                            None, matchColor=(0,255,0), singlePointColor=(0, 0, 255))
 
