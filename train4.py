@@ -5,6 +5,7 @@ Author: You-Yi Jau, Rui Zhu
 Date: 2019/12/12
 """
 
+#启动模型训练流程：main函数解析命令行->执行train_joint/train_base
 import argparse
 import yaml
 import os
@@ -51,15 +52,16 @@ def train_base(config, output_dir, args):
 def train_joint(config, output_dir, args):
     assert 'train_iter' in config  # 确保配置中包含训练迭代次数
 
-    # 配置初始化
+    # 。配置初始化
     torch.set_default_tensor_type(torch.FloatTensor)  # 设置默认张量类型
     task = config['data']['dataset']  # 获取数据集名称
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # 设置训练设备
     logging.info('train on device: %s', device)
     with open(os.path.join(output_dir, 'config.yml'), 'w') as f:
-        yaml.dump(config, f, default_flow_style=False)  # 保存配置到文件
+        yaml.dump(config, f, default_flow_style=False)  # 保存配置到文件到configyml
     
+    #日志和路径设置
     # 初始化TensorBoard日志记录器，用于在训练期间记录和可视化损失、指标等
     writer = SummaryWriter(getWriterPath(task=args.command, 
         exper_name=args.exper_name, date=True))
@@ -67,7 +69,7 @@ def train_joint(config, output_dir, args):
     # 获取保存路径
     save_path = get_save_path(output_dir)
 
-    # 数据加载
+    # ！！！数据加载
     data = dataLoader(config, dataset=task, warp_input=True)  # 加载训练和验证数据
     train_loader, val_loader = data['train_loader'], data['val_loader']
 
@@ -75,10 +77,11 @@ def train_joint(config, output_dir, args):
     datasize(train_loader, config, tag='train')
     datasize(val_loader, config, tag='val')
     
-    # 初始化训练代理
+
+    # ！！！初始化训练代理
     from utils.loader import get_module
-    train_model_frontend = get_module('', config['front_end_model'])  # 动态加载前端模型
-    train_agent = train_model_frontend(config, save_path=save_path, device=device)
+    train_model_frontend = get_module('', config['front_end_model'])  # 动态加载前端模型：加载一个包含 SuperPoint 模型及其所有训练逻辑的类
+    train_agent = train_model_frontend(config, save_path=save_path, device=device) #实例化训练核心/实例化训练代理
 
     # 设置TensorBoard日志记录器
     train_agent.writer = writer
@@ -106,7 +109,7 @@ if __name__ == '__main__':
                         datefmt='%m/%d/%Y %H:%M:%S', level=logging.INFO)
 
     # 命令行参数解析
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser() #参数解析器初始化
     subparsers = parser.add_subparsers(dest='command')  # 创建子命令解析器
 
     # 基础训练命令

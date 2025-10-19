@@ -9,7 +9,7 @@ import numpy as np
 class SuperPointNet_process(object):
 
 
-    def __init__(self, **config):
+    def __init__(self, **config): #构造函数
         # N=500, patch_size=5, device='cuda:0'
         self.out_num_points = config.get('out_num_points', 500)
         self.patch_size = config.get('patch_size', 5)
