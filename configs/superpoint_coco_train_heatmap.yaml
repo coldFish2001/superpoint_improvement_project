@@ -2,8 +2,10 @@ data:
     # name: 'coco'
     dataset: 'Coco' # 'coco'
 
-    labels: my_files/logs/1011_exportingDetection_coco2014/predictions #步骤2生成的伪标签路径
-    root: my_files/datasets/COCO #数据集路径
+    #labels: my_files/logs/1011_exportingDetection_coco2014/predictions #步骤2生成的伪标签路径
+    labels: '../../my_files/logs/1011_exportingDetection_coco2014/predictions'
+    #root: my_files/datasets/COCO #数据集路径
+    root: '../../my_files/datasets/COCO'
     root_split_txt: # /datasets/COCO
 
     gaussian_label:

@@ -12,6 +12,7 @@ import torch.nn as nn
 from torch.nn.init import xavier_uniform_, zeros_
 from models.unet_parts import *
 import numpy as np
+from .cbam import CBAM
 
 # from models.SubpixelNet import SubpixelNet
 class SuperPointNet_gauss2(torch.nn.Module):
@@ -31,6 +32,13 @@ class SuperPointNet_gauss2(torch.nn.Module):
         # self.outc = outconv(c1, subpixel_channel)
         self.relu = torch.nn.ReLU(inplace=True)
         # self.outc = outconv(64, n_classes)
+
+        # -----------------------------------------------------------
+        # [!!! 修改 1: 添加 CBAM 模块 !!!]
+        # x4 的通道数是 c4 (128)。我们将 CBAM 插入到这里。
+        FINAL_ENCODER_CHANNELS = c4 # 即 128
+        self.cbam = CBAM(channel=FINAL_ENCODER_CHANNELS)
+        # -----------------------------------------------------------
 
         # Detector Head.兴趣点检测器头部 128->256->65
         self.convPa = torch.nn.Conv2d(c4, c5, kernel_size=3, stride=1, padding=1) #共享特征图延迟到这一步才升维成256
@@ -61,11 +69,17 @@ class SuperPointNet_gauss2(torch.nn.Module):
         x3 = self.down2(x2)
         x4 = self.down3(x3)
 
+        # -----------------------------------------------------------
+        # [!!! 修改 2: 插入 CBAM 应用 !!!]
+        # 使用 CBAM 增强 x4
+        x4_enhanced = self.cbam(x4)
+        # -----------------------------------------------------------
+
         # Detector Head.
-        cPa = self.relu(self.bnPa(self.convPa(x4)))
+        cPa = self.relu(self.bnPa(self.convPa(x4_enhanced)))
         semi = self.bnPb(self.convPb(cPa)) #semi = $$\mathbf{(N, 65, H/8, W/8)}$$
         # Descriptor Head.
-        cDa = self.relu(self.bnDa(self.convDa(x4)))
+        cDa = self.relu(self.bnDa(self.convDa(x4_enhanced)))
         desc = self.bnDb(self.convDb(cDa))#W/8*H/8*256
         # print("desc: ", desc.shape)
 
