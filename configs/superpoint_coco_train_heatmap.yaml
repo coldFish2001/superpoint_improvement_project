@@ -73,12 +73,12 @@ model:
     lambda_loss: 1 # 1
     nms: 4
     dense_loss:
-        enable: false
+        enable: false #是否使用密集损失
         params:
             descriptor_dist: 4 # 4, 7.5
             lambda_d: 800 # 800
     sparse_loss:
-        enable: true
+        enable: true #是否使用稀疏损失
         params:
             num_matching_attempts: 1000
             num_masked_non_matches_per_match: 100
@@ -93,15 +93,15 @@ model:
         # settings: 'predict flow directly'
         # loss_func: 'subpixel_loss_no_argmax' # subpixel_loss, subpixel_loss_no_argmax
 
-retrain: True # set true for new model
+retrain: True # set true for new model 如果为false，则会获取预训练文件
 reset_iter: True # set true to set the iteration number to 0
 train_iter: 200000 # 170000
 validation_interval: 200 # 2000
-tensorboard_interval: 200 # 200
+tensorboard_interval: 200 # 200：控制训练日志和可视化数据写入 TensorBoard 的频率
 save_interval: 200 # 2000
 validation_size: 5
 
-#预训练模型地址
+#预训练模型地址（如果使用预训练模型，则需要把retrain参数设置为false）
 pretrained: 
 
 

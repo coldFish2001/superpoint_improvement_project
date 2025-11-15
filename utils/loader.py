@@ -16,7 +16,7 @@ from utils.utils import tensor2array, save_checkpoint, load_checkpoint, save_pat
 # from settings import EXPER_PATH
 
 # from utils.loader import get_save_path
-def get_save_path(output_dir):
+def get_save_path(output_dir): #根据输出目录 (output_dir) 创建并返回检查点（Checkpoint）的保存路径
     """
     This func
     :param output_dir:
@@ -28,7 +28,7 @@ def get_save_path(output_dir):
     os.makedirs(save_path, exist_ok=True)
     return save_path
 
-def worker_init_fn(worker_id):
+def worker_init_fn(worker_id): #为 PyTorch 的 多进程数据加载器（DataLoader） 设置一个独立的随机种子。
    """The function is designed for pytorch multi-process dataloader.
    Note that we use the pytorch random generator to generate a base_seed.
    Please try to be consistent.
@@ -42,12 +42,15 @@ def worker_init_fn(worker_id):
    np.random.seed(base_seed + worker_id)
 
 
-def dataLoader(config, dataset='syn', warp_input=False, train=True, val=True):
+def dataLoader(config, dataset='syn', warp_input=False, train=True, val=True): 
     import torchvision.transforms as transforms
+    
+    #从config字典中获取训练参数，并设置用于数据加载的 worker 进程数量
     training_params = config.get('training', {})
     workers_train = training_params.get('workers_train', 10) # 16
     workers_val   = training_params.get('workers_val', 10) # 16
-        
+    
+    #将数据转换成tensor格式
     logging.info(f"workers_train: {workers_train}, workers_val: {workers_val}")
     data_transforms = {
         'train': transforms.Compose([
@@ -60,9 +63,11 @@ def dataLoader(config, dataset='syn', warp_input=False, train=True, val=True):
     # if dataset == 'syn':
     #     from datasets.SyntheticDataset_gaussian import SyntheticDataset as Dataset
     # else:
+    #数据集类的获取
     Dataset = get_module('datasets', dataset)
     print(f"dataset: {dataset}")
 
+    #数据集初始化
     train_set = Dataset(
         transform=data_transforms['train'],
         task = 'train',

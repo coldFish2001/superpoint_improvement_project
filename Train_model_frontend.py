@@ -178,7 +178,8 @@ class Train_model_frontend(object):
         optimizer = optim.Adam(net.parameters(), lr=lr, betas=(0.9, 0.999))
         return optimizer
 
-    def loadModel(self):
+    def loadModel(self):#主要注意点：优化器的设置与预训练模型的加载
+        #负责模型的初始化、设备分配、优化器设置以及加载预训练权重
         """
         load model from name and params
         init or load optimizer
@@ -187,13 +188,14 @@ class Train_model_frontend(object):
         model = self.config["model"]["name"]
         params = self.config["model"]["params"]
         print("model: ", model)
-        net = modelLoader(model=model, **params).to(self.device)
+        net = modelLoader(model=model, **params).to(self.device) #实例化神经网络
         logging.info("=> setting adam solver")
-        optimizer = self.adamOptim(net, lr=self.config["model"]["learning_rate"])
+        optimizer = self.adamOptim(net, lr=self.config["model"]["learning_rate"]) #优化器设置
 
+        #处理预训练与继续训练逻辑
         n_iter = 0
         ## new model or load pretrained
-        if self.config["retrain"] == True:
+        if self.config["retrain"] == True: #判断是否整个重新训练
             logging.info("New model")
             pass
         else:
@@ -267,24 +269,28 @@ class Train_model_frontend(object):
         logging.info("n_iter: %d", self.n_iter)
         logging.info("max_iter: %d", self.max_iter)
         running_losses = []
-        epoch = 0
-        # Train one epoch
+        epoch = 0 #记录训练的轮次
+        # Train one epoch 
         while self.n_iter < self.max_iter:
             print("epoch: ", epoch)
             epoch += 1
-            for i, sample_train in tqdm(enumerate(self.train_loader)):
-                # train one sample
-                loss_out = self.train_val_sample(sample_train, self.n_iter, True)
+
+            #训练一个epoch
+            for i, sample_train in tqdm(enumerate(self.train_loader)): # 遍历（带着进度条tqdm）数据加载器，每次循环获取一个批次(sample_train)的数据及其序号(i)。
+                #每一个批次（batch）大小由batchsize决定
+                # train one sample ：sample_train指一个batch的训练数据
+                loss_out = self.train_val_sample(sample_train, self.n_iter, True) #损失值计算步骤：启用模型中的梯度计算、执行反向传播、执行参数优化器更新；最终返回损失值
                 self.n_iter += 1
-                running_losses.append(loss_out)
-                # run validation
+                running_losses.append(loss_out)#记录当前批次的损失
+
+                # run validation 周期性验证：模型验证、评估等
                 if self._eval and self.n_iter % self.config["validation_interval"] == 0:
                     logging.info("====== Validating...")
                     for j, sample_val in enumerate(self.val_loader):
                         self.train_val_sample(sample_val, self.n_iter + j, False)
                         if j > self.config.get("validation_size", 3):
                             break
-                # save model
+                # save model 判断是否到达保存模型的时间点
                 if self.n_iter % self.config["save_interval"] == 0:
                     logging.info(
                         "save model: every %d interval, current iteration: %d",
@@ -292,7 +298,7 @@ class Train_model_frontend(object):
                         self.n_iter,
                     )
                     self.saveModel()
-                # ending condition
+                # ending condition #训练终止条件判断
                 if self.n_iter > self.max_iter:
                     # end training
                     logging.info("End training: %d", self.n_iter)
@@ -361,24 +367,26 @@ class Train_model_frontend(object):
         task = "train" if train else "val"
         tb_interval = self.config["tensorboard_interval"]
 
-        losses = {}
+        losses = {} #损失字典初始化：用于后续收集并存储不同类型的损失值
         ## get the inputs
         # logging.info('get input img and label')
+
+        #原始输入数据提取
         img, labels_2D, mask_2D = (
-            sample["image"],
-            sample["labels_2D"],
-            sample["valid_mask"],
+            sample["image"],  #当前批次的原始输入图像
+            sample["labels_2D"], #图像中特征点或兴趣点的2D 坐标标签（通常是热图或位置指示）
+            sample["valid_mask"], #一个有效掩码，用于标记图像中哪些区域的数据是有效的（例如，排除图像边界或无信息的区域）
         )
         # img, labels = img.to(self.device), labels_2D.to(self.device)
 
-        # variables
+        # variables 数据尺寸计算
         batch_size, H, W = img.shape[0], img.shape[2], img.shape[3]
         self.batch_size = batch_size
         # print("batch_size: ", batch_size)
-        Hc = H // self.cell_size
+        Hc = H // self.cell_size #粗糙特征图尺寸
         Wc = W // self.cell_size
 
-        # warped images
+        # warped images 提取经过单应性变换后的数据
         # img_warp, labels_warp_2D, mask_warp_2D = sample['warped_img'].to(self.device), \
         #     sample['warped_labels'].to(self.device), \
         #     sample['warped_valid_mask'].to(self.device)
@@ -388,24 +396,25 @@ class Train_model_frontend(object):
             sample["warped_valid_mask"],
         )
 
-        # homographies
+        # homographies：单应性矩阵提取：提取用于将原始图像映射到变换图像的单应性矩阵 (mat_H)，以及其逆矩阵 (mat_H_inv)
         # mat_H, mat_H_inv = \
         # sample['homographies'].to(self.device), sample['inv_homographies'].to(self.device)
         mat_H, mat_H_inv = sample["homographies"], sample["inv_homographies"]
 
         # zero the parameter gradients
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad() #梯度清零
 
+        #前向传播部分：
         # forward + backward + optimize
-        if train:
+        if train: #训练模式
             # print("img: ", img.shape, ", img_warp: ", img_warp.shape)
             outs, outs_warp = (
-                self.net(img.to(self.device)),
-                self.net(img_warp.to(self.device), subpixel=self.subpixel),
+                self.net(img.to(self.device)), #将原始图像数据移动到指定的计算设备上（例如 GPU），然后传入网络 self.net
+                self.net(img_warp.to(self.device), subpixel=self.subpixel), #输入变换图像
             )
-            semi, coarse_desc = outs[0], outs[1]
+            semi, coarse_desc = outs[0], outs[1] #semi：特征点检测半监督热图，用于计算检测器损失； coarse_desc：粗糙描述子，用于计算描述子损失
             semi_warp, coarse_desc_warp = outs_warp[0], outs_warp[1]
-        else:
+        else: #验证模式：不需要计算梯度
             with torch.no_grad():
                 outs, outs_warp = (
                     self.net(img.to(self.device)),
@@ -415,15 +424,15 @@ class Train_model_frontend(object):
                 semi_warp, coarse_desc_warp = outs_warp[0], outs_warp[1]
                 pass
 
-        # detector loss
+        # detector loss 原始图像的检测器损失函数
         ## get labels, masks, loss for detection
-        labels3D_in_loss = self.getLabels(labels_2D, self.cell_size, device=self.device)
-        mask_3D_flattened = self.getMasks(mask_2D, self.cell_size, device=self.device)
-        loss_det = self.get_loss(
+        labels3D_in_loss = self.getLabels(labels_2D, self.cell_size, device=self.device) #真实标签
+        mask_3D_flattened = self.getMasks(mask_2D, self.cell_size, device=self.device) #3D掩码
+        loss_det = self.get_loss( #使用交叉熵损失：比较semi和labels3D_in_loss，计算出损失值
             semi, labels3D_in_loss, mask_3D_flattened, device=self.device
-        )
+        ) 
 
-        ## warping
+        ## warping 经过单应性变换的检测器损失函数
         labels3D_in_loss = self.getLabels(
             labels_warp_2D, self.cell_size, device=self.device
         )
@@ -434,7 +443,9 @@ class Train_model_frontend(object):
             semi_warp, labels3D_in_loss, mask_3D_flattened, device=self.device
         )
 
-        mask_desc = mask_3D_flattened.unsqueeze(1)
+
+        #描述子损失函数
+        mask_desc = mask_3D_flattened.unsqueeze(1) #准备描述子损失掩码
 
         # print("mask_desc: ", mask_desc.shape)
         # print("mask_warp_2D: ", mask_warp_2D.shape)
@@ -442,19 +453,21 @@ class Train_model_frontend(object):
         # descriptor loss
 
         # if self.desc_loss_type == 'dense':
-        loss_desc, mask, positive_dist, negative_dist = self.descriptor_loss(
-            coarse_desc,
-            coarse_desc_warp,
-            mat_H,
-            mask_valid=mask_desc,
+        loss_desc, mask, positive_dist, negative_dist = self.descriptor_loss( 
+            coarse_desc,                #原始图像的模型输出：粗糙特征描述子
+            coarse_desc_warp,           #变换图像的模型输出：粗糙特征描述子
+            mat_H,                      #单应性矩阵，它定义了原始图像和变换图像之间的几何对应关系
+            mask_valid=mask_desc,       #有效性掩码，用于排除无效区域的描述子，防止它们参与损失计算
             device=self.device,
-            **self.desc_params
+            **self.desc_params          #描述子损失函数的超参数（如正负样本距离的边距 margin 等）
         )
 
         loss = (
             loss_det + loss_det_warp + self.config["model"]["lambda_loss"] * loss_desc
         )
 
+
+        #亚像素定位的损失项
         if self.subpixel:
             # coarse to dense descriptor
             # work on warped level
@@ -527,7 +540,7 @@ class Train_model_frontend(object):
 
         self.loss = loss
 
-        losses.update(
+        losses.update( #收集并更新所有计算出的损失值和指标到一个字典中，以便于后续的日志记录和监控
             {
                 "loss": loss,
                 "loss_det": loss_det,
@@ -540,10 +553,12 @@ class Train_model_frontend(object):
         )
         # print("losses: ", losses)
 
+        #一个批次中的收尾工作
         if train:
-            loss.backward()
-            self.optimizer.step()
+            loss.backward()         #反向传播
+            self.optimizer.step()   #执行优化器步骤
 
+            #日志的可视化与记录
         self.addLosses2tensorboard(losses, task)
         if n_iter % tb_interval == 0 or task == "val":
             logging.info(
@@ -576,7 +591,7 @@ class Train_model_frontend(object):
                 img, labels_2D, semi, task=task, batch_size=batch_size
             )
 
-        return loss.item()
+        return loss.item() #返回损失值
 
     def saveModel(self):
         """

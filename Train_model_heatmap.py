@@ -70,24 +70,26 @@ class Train_model_heatmap(Train_model_frontend):
         # Update config
         print("Load Train_model_heatmap!!")
 
+        #config参数更新
         self.config = self.default_config
         self.config = dict_update(self.config, config)
         print("check config!!", self.config)
 
-        # init parameters
+        # init parameters 初始化核心参数
         self.device = device
         self.save_path = save_path
         self._train = True
         self._eval = True
-        self.cell_size = 8
+        self.cell_size = 8 #单元格大小：SuperPoint 架构中将图像划分为 $8 \times 8$ 区域的核心参数
         self.subpixel = False
 
-        self.max_iter = config["train_iter"]
+        self.max_iter = config["train_iter"] #最大迭代次数
 
-        self.gaussian = False
+        self.gaussian = False #用于确定是否使用高斯模糊的软标签来训练检测器
         if self.config["data"]["gaussian_label"]["enable"]:
             self.gaussian = True
 
+        #设置描述子损失函数（稀疏损失/密集损失）
         if self.config["model"]["dense_loss"]["enable"]:
             print("use dense_loss!")
             from utils.utils import descriptor_loss
@@ -682,14 +684,14 @@ if __name__ == "__main__":
 
     torch.set_default_tensor_type(torch.FloatTensor)
     with open(filename, "r") as f:
-        config = yaml.load(f)
+        config = yaml.load(f) #将文件句柄 f 中的内容加载为一个 Python 字典或列表，并赋值给 config 变量
 
     from utils.loader import dataLoader as dataLoader
 
     # data = dataLoader(config, dataset='hpatches')
     task = config["data"]["dataset"]
 
-    data = dataLoader(config, dataset=task, warp_input=True)
+    data = dataLoader(config, dataset=task, warp_input=True) #实例化
     # test_set, test_loader = data['test_set'], data['test_loader']
     train_loader, val_loader = data["train_loader"], data["val_loader"]
 
@@ -698,12 +700,12 @@ if __name__ == "__main__":
 
     train_agent = Train_model_heatmap(config, device=device)
 
-    train_agent.train_loader = train_loader
+    train_agent.train_loader = train_loader #将数据加载器授予训练代理器
     # train_agent.val_loader = val_loader
 
-    train_agent.loadModel()
-    train_agent.dataParallel()
-    train_agent.train()
+    train_agent.loadModel() #加载神经网络结构和优化器
+    train_agent.dataParallel() #配置模型以使用多个 GPU 进行数据并行训练
+    train_agent.train() #启动主训练循环，负责迭代数据集、调用 train_val_sample、计算损失、执行反向传播和参数更新
 
     # epoch += 1
     try:

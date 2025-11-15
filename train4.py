@@ -76,7 +76,6 @@ def train_joint(config, output_dir, args):
     # 打印数据集大小信息
     datasize(train_loader, config, tag='train')
     datasize(val_loader, config, tag='val')
-    
 
     # ！！！初始化训练代理
     from utils.loader import get_module
