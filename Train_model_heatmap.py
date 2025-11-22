@@ -324,48 +324,48 @@ class Train_model_heatmap(Train_model_frontend):
         if lambda_loss > 0:
             loss += lambda_loss * loss_desc
 
-        ##### try to minimize the error ######
-        add_res_loss = False
-        if add_res_loss and n_iter % 10 == 0:
-            print("add_res_loss!!!")
-            heatmap_org = self.get_heatmap(semi, det_loss_type)  # tensor []
-            heatmap_org_nms_batch = self.heatmap_to_nms(
-                self.images_dict, heatmap_org, name="heatmap_org"
-            )
-            if if_warp:
-                heatmap_warp = self.get_heatmap(semi_warp, det_loss_type)
-                heatmap_warp_nms_batch = self.heatmap_to_nms(
-                    self.images_dict, heatmap_warp, name="heatmap_warp"
-                )
+        ##### try to minimize the error ###### 这段被注释掉了
+        # add_res_loss = False
+        # if add_res_loss and n_iter % 10 == 0:
+        #     print("add_res_loss!!!")
+        #     heatmap_org = self.get_heatmap(semi, det_loss_type)  # tensor []
+        #     heatmap_org_nms_batch = self.heatmap_to_nms(
+        #         self.images_dict, heatmap_org, name="heatmap_org"
+        #     )
+        #     if if_warp:
+        #         heatmap_warp = self.get_heatmap(semi_warp, det_loss_type)
+        #         heatmap_warp_nms_batch = self.heatmap_to_nms(
+        #             self.images_dict, heatmap_warp, name="heatmap_warp"
+        #         )
 
             # original: pred
             ## check the loss on given labels!
-            outs_res = self.get_residual_loss(
-                sample["labels_2D"]
-                * to_floatTensor(heatmap_org_nms_batch).unsqueeze(1),
-                heatmap_org,
-                sample["labels_res"],
-                name="original_pred",
-            )
-            loss_res_ori = (outs_res["loss"] ** 2).mean()
-            # warped: pred
-            if if_warp:
-                outs_res_warp = self.get_residual_loss(
-                    sample["warped_labels"]
-                    * to_floatTensor(heatmap_warp_nms_batch).unsqueeze(1),
-                    heatmap_warp,
-                    sample["warped_res"],
-                    name="warped_pred",
-                )
-                loss_res_warp = (outs_res_warp["loss"] ** 2).mean()
-            else:
-                loss_res_warp = torch.tensor([0]).to(self.device)
-            loss_res = loss_res_ori + loss_res_warp
-            # print("loss_res requires_grad: ", loss_res.requires_grad)
-            loss += loss_res
-            self.scalar_dict.update(
-                {"loss_res_ori": loss_res_ori, "loss_res_warp": loss_res_warp}
-            )
+            # outs_res = self.get_residual_loss(
+            #     sample["labels_2D"]
+            #     * to_floatTensor(heatmap_org_nms_batch).unsqueeze(1),
+            #     heatmap_org,
+            #     sample["labels_res"],
+            #     name="original_pred",
+            # )
+            # loss_res_ori = (outs_res["loss"] ** 2).mean()
+            # # warped: pred
+            # if if_warp:
+            #     outs_res_warp = self.get_residual_loss(
+            #         sample["warped_labels"]
+            #         * to_floatTensor(heatmap_warp_nms_batch).unsqueeze(1),
+            #         heatmap_warp,
+            #         sample["warped_res"],
+            #         name="warped_pred",
+            #     )
+            #     loss_res_warp = (outs_res_warp["loss"] ** 2).mean()
+            # else:
+            #     loss_res_warp = torch.tensor([0]).to(self.device)
+            # loss_res = loss_res_ori + loss_res_warp
+            # # print("loss_res requires_grad: ", loss_res.requires_grad)
+            # loss += loss_res
+            # self.scalar_dict.update(
+            #     {"loss_res_ori": loss_res_ori, "loss_res_warp": loss_res_warp}
+            # )
 
         #######################################
 
@@ -385,6 +385,9 @@ class Train_model_heatmap(Train_model_frontend):
 
         if train:
             loss.backward()
+            #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5.0)
+            torch.nn.utils.clip_grad_norm_(self.net.parameters(), max_norm=5.0)
+            #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             self.optimizer.step()
 
         if n_iter % tb_interval == 0 or task == "val":
@@ -461,20 +464,21 @@ class Train_model_heatmap(Train_model_frontend):
 
             if self.gaussian:
                 # original: gt
-                self.get_residual_loss(
-                    sample["labels_2D"],
-                    sample["labels_2D_gaussian"],
-                    sample["labels_res"],
-                    name="original_gt",
-                )
-                if if_warp:
-                    # warped: gt
-                    self.get_residual_loss(
-                        sample["warped_labels"],
-                        sample["warped_labels_gaussian"],
-                        sample["warped_res"],
-                        name="warped_gt",
-                    )
+                # self.get_residual_loss(
+                #     sample["labels_2D"],
+                #     sample["labels_2D_gaussian"],
+                #     sample["labels_res"],
+                #     name="original_gt",
+                # )
+                # if if_warp:
+                #     # warped: gt
+                #     self.get_residual_loss(
+                #         sample["warped_labels"],
+                #         sample["warped_labels_gaussian"],
+                #         sample["warped_res"],
+                #         name="warped_gt",
+                #     )
+                pass
 
             # from utils.losses import do_log
             # patches_log = do_log(patches)
@@ -543,6 +547,10 @@ class Train_model_heatmap(Train_model_frontend):
         outs_res = self.pred_soft_argmax(
             labels_2D, heatmap, labels_res, patch_size=5, device=self.device
         )
+        loss_tensor = outs_res.get("loss")
+        if loss_tensor is None or loss_tensor.numel() == 0:
+            # No valid points in this batch; skip histogram/metric logging.
+            return outs_res
         self.hist_dict[name + "_resi_loss_x"] = outs_res["loss"][:, 0]
         self.hist_dict[name + "_resi_loss_y"] = outs_res["loss"][:, 1]
         err = abs(outs_res["loss"]).mean(dim=0)

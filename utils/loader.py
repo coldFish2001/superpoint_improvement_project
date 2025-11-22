@@ -179,16 +179,39 @@ def pretrainedLoader(net, optimizer, epoch, path, mode='full', full_path=False):
         checkpoint = load_checkpoint(path)
     # apply checkpoint
     if mode == 'full':
-        net.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        try:
+            net.load_state_dict(checkpoint['model_state_dict'])
+        except RuntimeError as err:
+            logging.warning(
+                "=> strict checkpoint load failed (%s). "
+                "Retrying with strict=False to allow new layers (e.g. CBAM).",
+                err,
+            )
+            net.load_state_dict(checkpoint['model_state_dict'], strict=False)
+        if 'optimizer_state_dict' in checkpoint:
+            try:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            except ValueError as err:
+                logging.warning(
+                    "=> optimizer state mismatch (%s). "
+                    "Skip loading optimizer state and keep freshly initialized optimizer.",
+                    err,
+                )
 #         epoch = checkpoint['epoch']
         epoch = checkpoint['n_iter']
 #         epoch = 0
     else:
-        net.load_state_dict(checkpoint)
+        try:
+            net.load_state_dict(checkpoint)
+        except RuntimeError as err:
+            logging.warning(
+                "=> strict checkpoint load failed (%s). "
+                "Retrying with strict=False to allow new layers (e.g. CBAM).",
+                err,
+            )
+            net.load_state_dict(checkpoint, strict=False)
         # net.load_state_dict(torch.load(path,map_location=lambda storage, loc: storage))
     return net, optimizer, epoch
 
 if __name__ == '__main__':
     net = modelLoader(model='SuperPointNet')
-

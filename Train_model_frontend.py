@@ -556,6 +556,8 @@ class Train_model_frontend(object):
         #一个批次中的收尾工作
         if train:
             loss.backward()         #反向传播
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5.0)
+            #torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             self.optimizer.step()   #执行优化器步骤
 
             #日志的可视化与记录

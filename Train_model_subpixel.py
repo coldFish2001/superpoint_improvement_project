@@ -178,6 +178,8 @@ class Train_model_subpixel(Train_model_frontend):
 
         if train:
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=5.0)
+          #  torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
             self.optimizer.step()
 
         self.tb_scalar_dict(losses, task)
