@@ -4,8 +4,9 @@ data:
 
     #labels: my_files/logs/1011_exportingDetection_coco2014/predictions #步骤2生成的伪标签路径
     labels: '../../my_files/logs/1011_exportingDetection_coco2014/predictions'
-    #root: my_files/datasets/COCO #数据集路径
-    root: '../../my_files/datasets/COCO'
+
+    #root: '../../my_files/datasets/COCO' #main
+    root: '/media/coldfish/SN530/BAG数据与双目数据/publicData_coco/COCO' #临时使用
     root_split_txt: # /datasets/COCO
 
     gaussian_label:
@@ -95,10 +96,10 @@ model:
 
 retrain: True # set true for new model
 reset_iter: True # set true to set the iteration number to 0
-train_iter: 200000 # 170000
-validation_interval: 200 # 2000
-tensorboard_interval: 200 # 200
-save_interval: 200 # 2000
+train_iter: 170000 # 170000
+validation_interval: 500 # 2000
+tensorboard_interval: 500 # 200
+save_interval: 500 # 2000
 validation_size: 5
 
 #预训练模型地址
